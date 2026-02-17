@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.acr_data/
+.DS_Store
+sessions/
+*.session
+*.session-journal
+*.session-lock
+config.json
