@@ -33,9 +33,10 @@ Terminal multi-account watcher for Telegram mini-app links.
 Runtime data is stored in `DATA_DIR` (config, sessions, logs, browser profile):
 
 - By default:
-  - all platforms: `~/Desktop/acrFetcher`
+  - macOS: `~/Library/Application Support/acrFetcher`
+  - Linux: `~/.local/share/acrFetcher`
 - Override with env: `ACRFETCHER_DATA_DIR=/path`
-- Note: `scripts/RUN.sh` still sets `ACRFETCHER_DATA_DIR` to local `.acr_data` unless you override it.
+- Note: `scripts/RUN.sh` sets `ACRFETCHER_DATA_DIR` to local `.acr_data` unless you override it.
 
 ## Monitoring modes
 
