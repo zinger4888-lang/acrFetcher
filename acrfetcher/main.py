@@ -47,7 +47,7 @@ def safe_url(u: str) -> str:
         return (u or '').split('#', 1)[0]
 
 APP_NAME = "acrFetcher"
-APP_VERSION = "0.1.52"
+APP_VERSION = "0.1.53"
 
 _WEBHOOK_CFG = {}
 _WARM_CACHE: dict[str, "WarmBrowserSession"] = {}
@@ -279,24 +279,10 @@ class WarmBrowserSession:
 def _default_data_dir() -> Path:
     """Platform default data dir.
 
-    macOS: ~/Library/Application Support/acrFetcher
-    Linux: ~/.local/share/acrFetcher
-    Windows: %APPDATA%\acrFetcher
+    Default for this build: ~/Desktop/acrFetcher
+    (all platforms, unless overridden by ACRFETCHER_DATA_DIR)
     """
-    try:
-        plat = sys.platform.lower()
-    except Exception:
-        plat = ""
-
-    if plat.startswith("darwin"):
-        return Path.home() / "Library" / "Application Support" / APP_NAME
-    if plat.startswith("linux"):
-        return Path.home() / ".local" / "share" / APP_NAME
-    if plat.startswith("win"):
-        base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
-        return Path(base) / APP_NAME
-    # fallback
-    return Path.home() / ".local" / "share" / APP_NAME
+    return Path.home() / "Desktop" / APP_NAME
 
 
 def resolve_data_dir() -> Path:
@@ -316,12 +302,16 @@ def resolve_data_dir() -> Path:
 
     return _default_data_dir()
 
-
+APP_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = resolve_data_dir()
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    # Sandbox/permission fallback (tests/CI): keep app runnable with local data dir.
+    DATA_DIR = (APP_ROOT / ".acr_data").resolve()
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 CONFIG_PATH = DATA_DIR / "config.json"
-APP_ROOT = Path(__file__).resolve().parent.parent
 ASSETS_DIR = APP_ROOT / "assets"
 BUNDLED_ART_PATH = ASSETS_DIR / "menu_art.txt"
 LEGACY_ART_PATH = APP_ROOT / "menu_art.txt"
