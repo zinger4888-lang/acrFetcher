@@ -47,7 +47,7 @@ def safe_url(u: str) -> str:
         return (u or '').split('#', 1)[0]
 
 APP_NAME = "acrFetcher"
-APP_VERSION = "0.1.51"
+APP_VERSION = "0.1.52"
 
 _WEBHOOK_CFG = {}
 _WARM_CACHE: dict[str, "WarmBrowserSession"] = {}
