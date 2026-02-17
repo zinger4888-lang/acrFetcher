@@ -943,6 +943,14 @@ def webhook_send(text: str) -> tuple[bool, str]:
     except Exception as e:
         return (False, f"{type(e).__name__}: {e}")
 
+
+async def webhook_send_async(text: str) -> tuple[bool, str]:
+    """Async wrapper to avoid blocking the event loop on Bot API HTTP calls."""
+    try:
+        return await asyncio.to_thread(webhook_send, text)
+    except Exception as e:
+        return (False, f"{type(e).__name__}: {e}")
+
 def webhook_delete_webhook(drop_pending_updates: bool = True) -> tuple[bool, str]:
     """Ensure getUpdates works: Bot API getUpdates won't return data if a webhook is set."""
     try:
@@ -3115,7 +3123,7 @@ async def watch_multi(cfg: dict, *, resume: bool = False) -> None:
                     await bump_gotem()
                     try:
                         if webhook_enabled():
-                            webhook_send(f"✅ SUCCESS ({label}): {detail}")
+                            await webhook_send_async(f"✅ SUCCESS ({label}): {detail}")
                     except Exception:
                         pass
                 elif res == "missed":
@@ -3226,7 +3234,7 @@ async def watch_multi(cfg: dict, *, resume: bool = False) -> None:
                     await bump_gotem()
                     try:
                         if webhook_enabled():
-                            webhook_send(f"✅ SUCCESS ({label}): {detail}")
+                            await webhook_send_async(f"✅ SUCCESS ({label}): {detail}")
                     except Exception:
                         pass
                 elif res == "missed":
@@ -3967,7 +3975,7 @@ async def main():
                     status_error(info)
                 await asyncio.sleep(1.5)
             elif sub == "2":
-                ok, err = webhook_send("📣 acrFetcher webhook test ✅")
+                ok, err = await webhook_send_async("📣 acrFetcher webhook test ✅")
                 if ok:
                     status_success_msg("webhook sent")
                 else:
