@@ -47,7 +47,7 @@ def safe_url(u: str) -> str:
         return (u or '').split('#', 1)[0]
 
 APP_NAME = "acrFetcher"
-APP_VERSION = "0.1.53"
+APP_VERSION = "0.1.54"
 
 _WEBHOOK_CFG = {}
 _WARM_CACHE: dict[str, "WarmBrowserSession"] = {}
@@ -1146,23 +1146,16 @@ def render_menu(cfg: dict) -> str:
 
     art_lines = art.splitlines()
 
-    _noise_chars = set(["@", "c", "t", "j", ".", ","])
     _frame_chars = set(["[", "]", "_", "-", "|", "\\", "/", "{", "}", "(", ")", ":", "`", "'"])
 
     def _ascii_style_for_char(ch: str, scanline: bool) -> tuple[str, str] | None:
         if ch == " ":
             return None
-        if ch in _noise_chars:
-            # noise stays dim; scanline disabled below (kept for compatibility)
-            _ = scanline
-            return ("fg", theme.dim_color)
+        _ = scanline
         if ch in _frame_chars:
-            return ("fg", theme.border_color)
-        if ch.isalnum():
-            # Make key glyphs (L/T/0/9 etc.) actually glow.
-            return ("text_bold", "")
-        # Avoid random bright speckles from punctuation in the noise mass.
-        return ("fg", theme.dim_color)
+            return ("frame", "")
+        # Solid glyph style for logo body (no translucent/noise rendering).
+        return ("logo", "")
 
     def _color_ascii_line(raw_line: str, scanline: bool) -> str:
         # Run-length encode ANSI to avoid terminal reflow/jitter from per-char SGR spam.
@@ -1179,8 +1172,10 @@ def render_menu(cfg: dict) -> str:
                 out.append(s)
             else:
                 kind, payload = cur_style
-                if kind == "text_bold":
-                    out.append(theme.fg(theme.text, s, bold=True))
+                if kind == "logo":
+                    out.append(theme.fg(theme.accent_2, s, bold=True))
+                elif kind == "frame":
+                    out.append(theme.pink_text(s))
                 elif kind == "text":
                     out.append(theme.white_text(s))
                 else:
