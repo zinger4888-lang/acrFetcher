@@ -13,13 +13,22 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual(status, "success")
         self.assertTrue(detail)
 
-    def test_expired_is_fail(self):
+    def test_expired_is_missed(self):
         status, detail = classify_result_text(
             "Sorry, this offer has expired.",
             success_patterns=["you got", "ticket"],
             fail_patterns=[],
         )
-        self.assertEqual(status, "fail")
+        self.assertEqual(status, "missed")
+        self.assertTrue(detail)
+
+    def test_no_longer_is_missed(self):
+        status, detail = classify_result_text(
+            "This offer is no longer available.",
+            success_patterns=["you got", "ticket"],
+            fail_patterns=[],
+        )
+        self.assertEqual(status, "missed")
         self.assertTrue(detail)
 
     def test_none_when_no_match(self):

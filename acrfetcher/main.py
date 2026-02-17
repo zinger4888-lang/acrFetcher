@@ -641,7 +641,7 @@ def colorizeStatus(code: str, detail: str = "") -> str:
     if c in ("SUCCESS", "DONE"):
         return theme.lime_text("✅ SUCCESS")
     if c in ("MISSED", "MIST"):
-        # MISSED = page loaded but prize/tickets already claimed.
+        # MISSED = page loaded but reward is unavailable (already claimed/expired/etc.).
         return theme.amber_text("⏱ MISSED")
     if c in ("FAIL",):
         # FAIL = other negative outcome (patterns matched).
@@ -1448,7 +1448,7 @@ async def ainput(prompt: str = "") -> str:
     return await loop.run_in_executor(None, lambda: input(prompt))
 
 
-HARD_FAIL_PHRASES = [
+HARD_MISSED_PHRASES = [
     "expired",
     "offer has expired",
     "this offer has expired",
@@ -1707,7 +1707,10 @@ async def detect_result_via_playwright(url: str, cfg: dict, timeout_ms: int, pol
                     if pat and pat in tnorm:
                         detail = next((l for l in lines if pat in l.lower()), pat)
                         return True, detail
-                ok, detail = _match_phrase_detail(tnorm, lines, HARD_FAIL_PHRASES)
+                return False, ""
+
+            def match_missed(tnorm: str, lines: list) -> tuple[bool, str]:
+                ok, detail = _match_phrase_detail(tnorm, lines, HARD_MISSED_PHRASES)
                 if ok:
                     return True, detail
                 return False, ""
@@ -1784,6 +1787,22 @@ async def detect_result_via_playwright(url: str, cfg: dict, timeout_ms: int, pol
                     text, lines = await read_text()
                     tnorm = norm(text)
 
+                    # hard-success phrases must stay SUCCESS
+                    ok, detail = _match_phrase_detail(tnorm, lines, ALREADY_CLAIMED_SUCCESS_PHRASES)
+                    if ok:
+                        await context.close()
+                        return ("success", detail)
+
+                    ok, detail = match_missed(tnorm, lines)
+                    if ok:
+                        await context.close()
+                        return ("missed", detail)
+
+                    ok, detail = match_success(tnorm, lines)
+                    if ok:
+                        await context.close()
+                        return ("success", detail)
+
                     ok, detail = match_fail(tnorm, lines)
                     if ok:
                         dump_path = ""
@@ -1793,11 +1812,6 @@ async def detect_result_via_playwright(url: str, cfg: dict, timeout_ms: int, pol
                         if dump_path:
                             return ("fail", f"{detail} | dump={dump_path}")
                         return ("fail", detail)
-
-                    ok, detail = match_success(tnorm, lines)
-                    if ok:
-                        await context.close()
-                        return ("success", detail)
 
                     last_snip = norm(text)[:220] if text else ""
                     # wait between checks
@@ -1882,7 +1896,10 @@ async def detect_result_playwright_keep_open(url: str, cfg: dict, timeout_ms: in
             if pat and pat in tnorm:
                 detail = next((l for l in lines if pat in l.lower()), pat)
                 return True, detail
-        ok, detail = _match_phrase_detail(tnorm, lines, HARD_FAIL_PHRASES)
+        return False, ""
+
+    def match_missed(tnorm: str, lines: list) -> tuple[bool, str]:
+        ok, detail = _match_phrase_detail(tnorm, lines, HARD_MISSED_PHRASES)
         if ok:
             return True, detail
         return False, ""
@@ -1936,6 +1953,12 @@ async def detect_result_playwright_keep_open(url: str, cfg: dict, timeout_ms: in
 
         text, lines = await read_text(page)
         tnorm = norm(text)
+        ok, detail = _match_phrase_detail(tnorm, lines, ALREADY_CLAIMED_SUCCESS_PHRASES)
+        if ok:
+            return ("success", detail, pw, context)
+        ok, detail = match_missed(tnorm, lines)
+        if ok:
+            return ("missed", detail, pw, context)
         ok, detail = match_fail(tnorm, lines)
         if ok:
             return ("fail", detail, pw, context)
@@ -1981,7 +2004,10 @@ async def detect_result_via_warm_session(session: 'WarmBrowserSession', url: str
             if pat and pat in tnorm:
                 detail = next((l for l in lines if pat in l.lower()), pat)
                 return True, detail
-        ok, detail = _match_phrase_detail(tnorm, lines, HARD_FAIL_PHRASES)
+        return False, ""
+
+    def match_missed(tnorm: str, lines: list) -> tuple[bool, str]:
+        ok, detail = _match_phrase_detail(tnorm, lines, HARD_MISSED_PHRASES)
         if ok:
             return True, detail
         return False, ""
@@ -2014,6 +2040,14 @@ async def detect_result_via_warm_session(session: 'WarmBrowserSession', url: str
     while (time.time() - start_t) * 1000 < timeout_ms:
         text, lines = await read_text(page)
         tnorm = norm(text)
+
+        ok, detail = _match_phrase_detail(tnorm, lines, ALREADY_CLAIMED_SUCCESS_PHRASES)
+        if ok:
+            return ("success", detail)
+
+        ok, detail = match_missed(tnorm, lines)
+        if ok:
+            return ("missed", detail)
 
         ok, detail = match_fail(tnorm, lines)
         if ok:

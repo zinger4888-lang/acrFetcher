@@ -61,13 +61,13 @@ All runtime logs should go to:
 ## Main statuses
 
 - State: `MONITORING`, `POLL`, `OPENING`, `STOPPED`
-- Result: `SUCCESS`, `FAIL`, `TIMEOUT`
+- Result: `SUCCESS`, `MISSED`, `FAIL`, `TIMEOUT`
 - Errors: `PROXY_TGR`, `PROXY_WEBR`, `ERROR`
 
 Current classifier rules:
 
 - `already claimed` style text is treated as `SUCCESS`
-- `expired`, `no longer`, `not available` style text is treated as `FAIL`
+- `expired`, `no longer`, `not available` style text is treated as `MISSED`
 
 ## Tests
 

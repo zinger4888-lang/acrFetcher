@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 
 
-HARD_FAIL_PHRASES = [
+HARD_MISSED_PHRASES = [
     "expired",
     "offer has expired",
     "this offer has expired",
@@ -47,19 +47,19 @@ def classify_result_text(
     tnorm = norm_text(text)
     lines = split_lines(text)
 
+    ok, detail = match_phrase_detail(tnorm, lines, ALREADY_CLAIMED_SUCCESS_PHRASES)
+    if ok:
+        return "success", detail
+
+    ok, detail = match_phrase_detail(tnorm, lines, HARD_MISSED_PHRASES)
+    if ok:
+        return "missed", detail
+
     fail = [norm_text(x) for x in (fail_patterns or []) if str(x).strip()]
     for pat in fail:
         if pat and pat in tnorm:
             detail = next((l for l in lines if pat in l.lower()), pat)
             return "fail", detail
-
-    ok, detail = match_phrase_detail(tnorm, lines, HARD_FAIL_PHRASES)
-    if ok:
-        return "fail", detail
-
-    ok, detail = match_phrase_detail(tnorm, lines, ALREADY_CLAIMED_SUCCESS_PHRASES)
-    if ok:
-        return "success", detail
 
     succ = [norm_text(x) for x in (success_patterns or []) if str(x).strip()]
     if succ:
