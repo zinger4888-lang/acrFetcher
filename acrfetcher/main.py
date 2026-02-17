@@ -47,7 +47,7 @@ def safe_url(u: str) -> str:
         return (u or '').split('#', 1)[0]
 
 APP_NAME = "acrFetcher"
-APP_VERSION = "0.1.54"
+APP_VERSION = "0.1.56"
 
 _WEBHOOK_CFG = {}
 _WARM_CACHE: dict[str, "WarmBrowserSession"] = {}
@@ -279,10 +279,24 @@ class WarmBrowserSession:
 def _default_data_dir() -> Path:
     """Platform default data dir.
 
-    Default for this build: ~/Desktop/acrFetcher
-    (all platforms, unless overridden by ACRFETCHER_DATA_DIR)
+    macOS: ~/Library/Application Support/acrFetcher
+    Linux: ~/.local/share/acrFetcher
+    Windows: %APPDATA%\acrFetcher
     """
-    return Path.home() / "Desktop" / APP_NAME
+    try:
+        plat = sys.platform.lower()
+    except Exception:
+        plat = ""
+
+    if plat.startswith("darwin"):
+        return Path.home() / "Library" / "Application Support" / APP_NAME
+    if plat.startswith("linux"):
+        return Path.home() / ".local" / "share" / APP_NAME
+    if plat.startswith("win"):
+        base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
+        return Path(base) / APP_NAME
+    # fallback
+    return Path.home() / ".local" / "share" / APP_NAME
 
 
 def resolve_data_dir() -> Path:
