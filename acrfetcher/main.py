@@ -47,7 +47,7 @@ def safe_url(u: str) -> str:
         return (u or '').split('#', 1)[0]
 
 APP_NAME = "acrFetcher"
-APP_VERSION = "0.1.56"
+APP_VERSION = "0.1.57"
 
 _WEBHOOK_CFG = {}
 _WARM_CACHE: dict[str, "WarmBrowserSession"] = {}
@@ -1090,13 +1090,19 @@ def slot_bounds(line: str) -> Optional[Tuple[int, int]]:
     We find the first "[[[" and then the next " : " after it.
     Content starts after "  [[[ : " => i + 6. Content ends at the delimiter position.
     """
-    i = line.find("[[[")
+    i = line.find("[[[ :")
     if i < 0:
         return None
-    j = line.find(" : ", i + 4)  # delimiter after content
+    # Most rows use "[[[ : " (with trailing space), but subtitle row is "[[[ :"
+    # with no trailing space before content.
+    start = i + 6 if (i + 5 < len(line) and line[i + 5] == " ") else i + 5
+    j = line.find(" : ", start)  # preferred delimiter after content
+    if j < 0:
+        # Some template rows use ": " (no leading space before ':')
+        # for the closing slot marker (e.g. subtitle row).
+        j = line.find(": ", start)
     if j < 0:
         return None
-    start = i + 6
     end = j
     if end <= start:
         return None
@@ -1215,16 +1221,25 @@ def render_menu(cfg: dict) -> str:
         _flush()
         return "".join(out)
 
-    def _color_art_line(raw_line: str, slot_text: Optional[str], scanline: bool) -> str:
+    def _color_art_line(raw_line: str, slot_text: Optional[str], scanline: bool, compact_tail: bool = False) -> str:
         b = slot_bounds(raw_line)
         if b:
             start, end = b
+            width = end - start
             left = raw_line[:start]
             right = raw_line[end:]
             inner_raw = raw_line[start:end]
-            inner = slot_text if slot_text is not None else _color_ascii_line(inner_raw, scanline)
+            if slot_text is not None:
+                # Keep right border stable: slot content must always occupy fixed width.
+                inner = _pad_ansi(slot_text, width)
+            else:
+                inner = _color_ascii_line(inner_raw, scanline)
             left_col = _color_ascii_line(left, scanline)
-            right_col = _color_ascii_line(right, scanline)
+            if compact_tail:
+                # Keep slot closing delimiter only; drop decorative tail that overlaps info area.
+                right_col = theme.pink_text(" : ")
+            else:
+                right_col = _color_ascii_line(right, scanline)
             return f"{left_col}{inner}{right_col}"
         return _color_ascii_line(raw_line, scanline)
 
@@ -1243,25 +1258,28 @@ def render_menu(cfg: dict) -> str:
 
         if "HAPPY ST." in inner and "PATRICK" in inner:
             slot_txt = _center_ansi(title, width)
-            out.append(_color_art_line(ln, slot_txt, scanline))
+            out.append(_color_art_line(ln, slot_txt, scanline, compact_tail=True))
             continue
         if "FROM" in inner and "Phoeni" in inner:
             slot_txt = _center_ansi(theme.white_text(subtitle), width)
-            out.append(_color_art_line(ln, slot_txt, scanline))
+            out.append(_color_art_line(ln, slot_txt, scanline, compact_tail=True))
             continue
 
         if inner_strip == "":
             if not inserted_blank:
                 # one empty line after subtitle
                 slot_txt = ""
-                out.append(_color_art_line(ln, slot_txt, scanline))
+                out.append(_color_art_line(ln, slot_txt, scanline, compact_tail=True))
                 inserted_blank = True
                 continue
             if info_idx < len(info_kinds):
                 slot_txt = _info_line(info_kinds[info_idx], width)
-                out.append(_color_art_line(ln, slot_txt, scanline))
+                out.append(_color_art_line(ln, slot_txt, scanline, compact_tail=True))
                 info_idx += 1
                 continue
+            # Keep remaining content rows clean too (no decorative overlap).
+            out.append(_color_art_line(ln, "", scanline, compact_tail=True))
+            continue
 
         out.append(_color_art_line(ln, None, scanline))
 
