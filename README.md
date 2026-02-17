@@ -33,9 +33,39 @@ Terminal multi-account watcher for Telegram mini-app links.
 Runtime data is stored in `DATA_DIR` (config, sessions, logs, browser profile):
 
 - By default:
-  - macOS: `~/Library/Application Support/acrFetcher`
-  - Linux: `~/.local/share/acrFetcher`
+  - all platforms: `~/Desktop/acrFetcher`
 - Override with env: `ACRFETCHER_DATA_DIR=/path`
+- Note: `scripts/RUN.sh` still sets `ACRFETCHER_DATA_DIR` to local `.acr_data` unless you override it.
+
+## Monitoring modes
+
+- `watch_mode`:
+  - `new`: continuous multi-account watch mode (shared bus + dedupe + per-account open workers).
+  - `old`: one-shot link mode (you paste a Telegram message link, each account processes it once).
+- `monitor_mode` (used only when `watch_mode=new`):
+  - `live_only`: only Telegram `events.NewMessage` stream + keepalive.
+  - `poll_only`: only staggered polling (`get_messages(limit=1)`) + shared post processor.
+  - `live+poll`: both live stream and polling enabled.
+- Poll cadence behavior:
+  - polling is round-robin (one account per tick);
+  - effective `poll_interval_sec` is auto-throttled so one account is not polled more often than once per 10 seconds.
+
+## Opening modes
+
+- Link discovery order per post:
+  - launch button (`launch_button_text`) from Telegram message markup;
+  - mini-app URL from entities/web preview/text;
+  - fallback to first URL only if `miniapp_link_fallback=true`.
+- Link gate:
+  - `open_only_telegram_links=true` blocks non-Telegram links as `BADLINK`.
+- Browser execution:
+  - `headless_mode=false`: headed Playwright/Chromium flow.
+  - `headless_mode=true`: warm per-account browser session for faster OPENING handling.
+  - `watch_mode=old` + `headless_mode=false`: page window is kept open until stop/quit.
+- Session/state behavior:
+  - `storage_state_mode`: `off` | `use` | `capture`.
+  - `goto_wait_until`: Playwright navigation wait mode (default `commit`).
+- `force_open_in_telegram_app` is kept for compatibility in config but is not used in runtime routing.
 
 ## Security rules (important)
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -127,18 +126,7 @@ def _coerce_str_list(v: Any, default: list[str]) -> list[str]:
 
 
 def _default_data_dir() -> Path:
-    try:
-        plat = sys.platform.lower()
-    except Exception:
-        plat = ""
-    if plat.startswith("darwin"):
-        return Path.home() / "Library" / "Application Support" / APP_NAME
-    if plat.startswith("linux"):
-        return Path.home() / ".local" / "share" / APP_NAME
-    if plat.startswith("win"):
-        base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
-        return Path(base) / APP_NAME
-    return Path.home() / ".local" / "share" / APP_NAME
+    return Path.home() / "Desktop" / APP_NAME
 
 
 def resolve_data_dir() -> Path:
