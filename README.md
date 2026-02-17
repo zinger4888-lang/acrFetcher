@@ -7,8 +7,26 @@ Terminal multi-account watcher for Telegram mini-app links.
 - macOS: `./RUN.command`
 - Linux/server: `./RUN.sh`
 
-`RUN.command` is tuned for local macOS Terminal window size.
+`RUN.command` is tuned for local macOS Terminal window size.  
 `RUN.sh` is tuned for server/headless usage and defaults data to local `.acr_data` unless `ACRFETCHER_DATA_DIR` is set.
+
+## Architecture map
+
+- Entry point:
+  - `acrFetcher.py` (thin compatibility launcher)
+  - `acrfetcher/main.py` (runtime/menu/watch implementation)
+- Core modules:
+  - `acrfetcher/config_store.py` (typed config + migrations)
+  - `acrfetcher/accounts_store.py` (accounts CSV parsing + proxy parsing)
+  - `acrfetcher/status_codes.py` (status enum + labels)
+  - `acrfetcher/webhook.py` (sync/async webhook calls)
+  - `acrfetcher/detector.py` (result text classification helpers)
+  - `acrfetcher/watch_runtime.py` (TaskGroup-oriented lifecycle controller)
+  - `acrfetcher/ui_watch.py` (UI event reducer model)
+  - `acrfetcher/telegram_runtime.py` (channel resolving helpers)
+  - `acrfetcher/logging_setup.py` (runtime logging to file-only)
+  - `acrfetcher/utils.py` (shared parsing/format helpers)
+  - `acrfetcher/models.py` (typed dataclasses)
 
 ## Data location (`DATA_DIR`)
 
@@ -32,6 +50,7 @@ Repository policy:
 - `accounts.csv` in repo is public-safe template only.
 - real private account list stays local only.
 - use `accounts.example.csv` as clean starter template.
+- use `config.example.json` as clean config template.
 
 ## Logs
 
@@ -41,7 +60,47 @@ All runtime logs should go to:
 
 ## Main statuses
 
-- `MONITORING`, `POLL`, `OPENING`
-- `SUCCESS`, `MISSED`, `FAIL`, `TIMEOUT`
-- `PROXY_TGR`, `PROXY_WEBR`, `ERROR`
-- `STOPPED`
+- State: `MONITORING`, `POLL`, `OPENING`, `STOPPED`
+- Result: `SUCCESS`, `FAIL`, `TIMEOUT`
+- Errors: `PROXY_TGR`, `PROXY_WEBR`, `ERROR`
+
+Current classifier rules:
+
+- `already claimed` style text is treated as `SUCCESS`
+- `expired`, `no longer`, `not available` style text is treated as `FAIL`
+
+## Tests
+
+Run core unit + smoke tests:
+
+```bash
+python3 -m unittest discover -s tests -p "test_*.py" -v
+```
+
+Quick syntax check:
+
+```bash
+python3 -m py_compile acrFetcher.py acrfetcher/main.py ui_theme.py
+```
+
+## Run/debug workflow
+
+1. Set `channel` and private `accounts.csv` locally.
+2. Run watcher via `RUN.command` or `RUN.sh`.
+3. For proxy/connect issues, inspect `DATA_DIR/logs/runtime.log`.
+4. For live status transitions, inspect `DATA_DIR/logs/status_live.tsv`.
+
+## Known recovery flows
+
+- Auth preflight loop: ensure `.session` files exist in `DATA_DIR/sessions`.
+- Proxy failures: rows should show `PROXY_TGR`/`PROXY_WEBR` without terminal spam.
+- UI fallback: if prompt-toolkit crashes, app falls back to classic redraw mode.
+
+## Developer refactor map
+
+When making deeper changes:
+
+1. Keep `acrFetcher.py` as compatibility launcher.
+2. Keep config migration backward-compatible (`push_*` to `webhook_*`).
+3. Keep command semantics unchanged: `stop`, `run`, `quit`.
+4. Preserve local-only privacy rules for sessions/config/private accounts.
