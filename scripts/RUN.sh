@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$ROOT_DIR"
 
 # Keep runtime data local to this folder on servers by default.
 # Override if you want: export ACRFETCHER_DATA_DIR=/path

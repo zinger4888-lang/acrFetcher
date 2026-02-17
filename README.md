@@ -5,10 +5,10 @@ Terminal multi-account watcher for Telegram mini-app links.
 ## Run
 
 - macOS: `./RUN.command`
-- Linux/server: `./RUN.sh`
+- Linux/server: `./scripts/RUN.sh`
 
 `RUN.command` is tuned for local macOS Terminal window size.  
-`RUN.sh` is tuned for server/headless usage and defaults data to local `.acr_data` unless `ACRFETCHER_DATA_DIR` is set.
+`scripts/RUN.sh` is tuned for server/headless usage and defaults data to local `.acr_data` unless `ACRFETCHER_DATA_DIR` is set.
 
 ## Architecture map
 
@@ -47,10 +47,9 @@ Never publish to GitHub:
 
 Repository policy:
 
-- `accounts.csv` in repo is public-safe template only.
-- real private account list stays local only.
-- use `accounts.example.csv` as clean starter template.
-- use `config.example.json` as clean config template.
+- real private account list stays local only (`DATA_DIR/accounts.csv` by default).
+- use `examples/accounts.example.csv` as clean starter template.
+- use `examples/config.example.json` as clean config template.
 
 ## Logs
 
@@ -85,8 +84,8 @@ python3 -m py_compile acrFetcher.py acrfetcher/main.py ui_theme.py
 
 ## Run/debug workflow
 
-1. Set `channel` and private `accounts.csv` locally.
-2. Run watcher via `RUN.command` or `RUN.sh`.
+1. Set `channel` and private `DATA_DIR/accounts.csv` locally (or set explicit `accounts_csv` path in config).
+2. Run watcher via `RUN.command` or `scripts/RUN.sh`.
 3. For proxy/connect issues, inspect `DATA_DIR/logs/runtime.log`.
 4. For live status transitions, inspect `DATA_DIR/logs/status_live.tsv`.
 
