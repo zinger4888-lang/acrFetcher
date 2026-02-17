@@ -322,7 +322,11 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 CONFIG_PATH = DATA_DIR / "config.json"
 APP_ROOT = Path(__file__).resolve().parent.parent
-BUNDLED_ART_PATH = APP_ROOT / "menu_art.txt"
+ASSETS_DIR = APP_ROOT / "assets"
+BUNDLED_ART_PATH = ASSETS_DIR / "menu_art.txt"
+LEGACY_ART_PATH = APP_ROOT / "menu_art.txt"
+DEFAULT_ACCOUNTS_PATH = DATA_DIR / "accounts.csv"
+LEGACY_ACCOUNTS_PATH = APP_ROOT / "accounts.csv"
 
 # Full-screen UI (prompt_toolkit/classic redraw) must not be corrupted by
 # background stdout/stderr noise. We keep all library logging in DATA_DIR/logs.
@@ -1053,7 +1057,27 @@ def save_config(cfg: dict) -> None:
     CONFIG_PATH.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
 
 def load_art() -> str:
-    return BUNDLED_ART_PATH.read_text(encoding="utf-8")
+    for pth in (BUNDLED_ART_PATH, LEGACY_ART_PATH):
+        try:
+            if pth.exists():
+                return pth.read_text(encoding="utf-8")
+        except Exception:
+            continue
+    return ""
+
+
+def resolve_accounts_csv_path(csv_raw: str) -> Path:
+    raw = str(csv_raw or "").strip()
+    if raw:
+        p = Path(raw).expanduser()
+        if not p.is_absolute():
+            p = (Path.cwd() / p).resolve()
+        return p
+    if DEFAULT_ACCOUNTS_PATH.exists():
+        return DEFAULT_ACCOUNTS_PATH
+    if LEGACY_ACCOUNTS_PATH.exists():
+        return LEGACY_ACCOUNTS_PATH
+    return DEFAULT_ACCOUNTS_PATH
 
 def slot_bounds(line: str) -> Optional[Tuple[int, int]]:
     """
@@ -2164,9 +2188,9 @@ async def watch_multi(cfg: dict, *, resume: bool = False) -> None:
     if dedup_ttl_sec < 600:
         dedup_ttl_sec = 600
 
-    # accounts.csv (next to script by default)
+    # accounts.csv defaults to DATA_DIR/accounts.csv (legacy root fallback supported)
     csv_raw = str(cfg.get("accounts_csv", "") or "").strip()
-    csv_path = Path(csv_raw).expanduser() if csv_raw else (APP_ROOT / "accounts.csv")
+    csv_path = resolve_accounts_csv_path(csv_raw)
     accounts = load_accounts_csv(csv_path)
 
     # Auto-throttle: each account must not poll more often than once per 10s.
