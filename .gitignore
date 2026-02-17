@@ -8,3 +8,5 @@ sessions/
 *.session-journal
 *.session-lock
 config.json
+accounts.local*.csv
+accounts.private*.csv
