@@ -3,4 +3,5 @@ playwright>=1.45.0
 wcwidth>=0.2.13
 certifi>=2024.7.4
 PySocks>=1.7.1
+python-socks>=2.7.2
 prompt_toolkit>=3.0.43
