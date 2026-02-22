@@ -1157,7 +1157,7 @@ def render_menu(cfg: dict) -> str:
             val_color = theme.amber_text
         else:
             val = got
-            prefix = f'{theme.gray_text("Got\'em:")} '
+            prefix = theme.gray_text("Got'em:") + " "
             val_color = theme.lime_text
 
         # Fit value into remaining width so we don't trigger _pad_ansi truncation
@@ -4045,7 +4045,7 @@ async def main():
         print(f"{num_col('2')} {txt('Set channel')}")
         print(f"{num_col('3')} {txt('Set delays')}")
         print(f"{num_col('4')} {txt('Set mode')} {cur}")
-        print(f'{num_col("5")} {txt("Reset Got\'em")}')
+        print(num_col("5") + " " + txt("Reset Got'em"))
         print(f"{num_col('6')} {txt('Webhook')}")
         print(f"{num_col('7')} {txt('Quit')}")
         print("")
