@@ -526,6 +526,10 @@ def formatProxyMasked(raw: str, width: Optional[int] = None) -> str:
     if not s or s in ("-", "—"):
         return theme.gray_text("—")
 
+    def _is_localhost_token(host: str) -> bool:
+        h = (host or "").strip().lower()
+        return h in ("127.0.0.1", "localhost", "::1", "[::1]")
+
     def _mask_secret(val: str) -> str:
         return "******" if val else ""
 
@@ -543,7 +547,10 @@ def formatProxyMasked(raw: str, width: Optional[int] = None) -> str:
                 auth = f"{user}:{_mask_secret(pwd)}@" if (user or pwd) else ""
                 if user and not pwd:
                     auth = f"{user}@"
-            plain = f"{scheme}{auth}{host}{(':' + port) if port else ''}"
+            if _is_localhost_token(host):
+                plain = f"localhost{(':' + port) if port else ''}"
+            else:
+                plain = f"{scheme}{auth}{host}{(':' + port) if port else ''}"
         except Exception:
             plain = s
     else:
@@ -551,12 +558,14 @@ def formatProxyMasked(raw: str, width: Optional[int] = None) -> str:
         if len(parts) >= 4:
             host, port, user = parts[0], parts[1], parts[2]
             pwd = ":".join(parts[3:])
-            plain = f"{host}:{port}:{user}:{_mask_secret(pwd)}"
+            host_vis = "localhost" if _is_localhost_token(host) else host
+            plain = f"{host_vis}:{port}:{user}:{_mask_secret(pwd)}"
         elif len(parts) == 2:
             host, port = parts[0], parts[1]
-            plain = f"{host}:{port}"
+            host_vis = "localhost" if _is_localhost_token(host) else host
+            plain = f"{host_vis}:{port}"
         else:
-            plain = s
+            plain = "localhost" if _is_localhost_token(s) else s
 
     if width is not None:
         plain = _fit_cell(plain, width)
@@ -1165,6 +1174,22 @@ def render_menu(cfg: dict) -> str:
     inserted_blank = False
 
     art_lines = art.splitlines()
+    character_split_by_line: dict[int, int] = {}
+    for i, raw in enumerate(art_lines):
+        if slot_bounds(raw):
+            continue
+        try:
+            for m in re.finditer(r" {2,}", raw):
+                if m.start() < 10:
+                    continue
+                if not raw[:m.start()].strip():
+                    continue
+                if not raw[m.end():].strip():
+                    continue
+                character_split_by_line[i] = m.end()
+                break
+        except Exception:
+            pass
 
     _frame_chars = set(["[", "]", "_", "-", "|", "\\", "/", "{", "}", "(", ")", ":", "`", "'"])
 
@@ -1221,7 +1246,27 @@ def render_menu(cfg: dict) -> str:
         _flush()
         return "".join(out)
 
-    def _color_art_line(raw_line: str, slot_text: Optional[str], scanline: bool, compact_tail: bool = False) -> str:
+    def _color_char_edges(raw_line: str, scanline: bool) -> str:
+        non_space = [i for i, ch in enumerate(raw_line) if ch != " "]
+        if not non_space:
+            return _color_ascii_line(raw_line, scanline)
+        left_i = non_space[0]
+        right_i = non_space[-1]
+        if left_i == right_i:
+            return (
+                _color_ascii_line(raw_line[:left_i], scanline)
+                + theme.purple_text(raw_line[left_i])
+                + _color_ascii_line(raw_line[left_i + 1 :], scanline)
+            )
+        return (
+            _color_ascii_line(raw_line[:left_i], scanline)
+            + theme.purple_text(raw_line[left_i])
+            + _color_ascii_line(raw_line[left_i + 1 : right_i], scanline)
+            + theme.purple_text(raw_line[right_i])
+            + _color_ascii_line(raw_line[right_i + 1 :], scanline)
+        )
+
+    def _color_art_line(line_idx: int, raw_line: str, slot_text: Optional[str], scanline: bool, compact_tail: bool = False) -> str:
         b = slot_bounds(raw_line)
         if b:
             start, end = b
@@ -1235,19 +1280,26 @@ def render_menu(cfg: dict) -> str:
             else:
                 inner = _color_ascii_line(inner_raw, scanline)
             left_col = _color_ascii_line(left, scanline)
-            if compact_tail:
-                # Keep slot closing delimiter only; drop decorative tail that overlaps info area.
-                right_col = theme.pink_text(" : ")
-            else:
-                right_col = _color_ascii_line(right, scanline)
+            _ = compact_tail
+            right_prefix = ""
+            right_target = right
+            if right.startswith(" : "):
+                right_prefix = _color_ascii_line(" : ", scanline)
+                right_target = right[3:]
+            right_col = right_prefix + _color_char_edges(right_target, scanline)
             return f"{left_col}{inner}{right_col}"
-        return _color_ascii_line(raw_line, scanline)
+        split_at = character_split_by_line.get(line_idx)
+        if split_at is None:
+            return _color_ascii_line(raw_line, scanline)
+        left_raw = raw_line[:split_at]
+        char_raw = raw_line[split_at:]
+        return _color_ascii_line(left_raw, scanline) + _color_char_edges(char_raw, scanline)
 
     for idx, ln in enumerate(art_lines):
         b = slot_bounds(ln)
         if not b:
             scanline = False
-            out.append(_color_art_line(ln, None, scanline))
+            out.append(_color_art_line(idx, ln, None, scanline))
             continue
 
         start, end = b
@@ -1258,30 +1310,30 @@ def render_menu(cfg: dict) -> str:
 
         if "HAPPY ST." in inner and "PATRICK" in inner:
             slot_txt = _center_ansi(title, width)
-            out.append(_color_art_line(ln, slot_txt, scanline, compact_tail=True))
+            out.append(_color_art_line(idx, ln, slot_txt, scanline, compact_tail=True))
             continue
         if "FROM" in inner and "Phoeni" in inner:
             slot_txt = _center_ansi(theme.white_text(subtitle), width)
-            out.append(_color_art_line(ln, slot_txt, scanline, compact_tail=True))
+            out.append(_color_art_line(idx, ln, slot_txt, scanline, compact_tail=True))
             continue
 
         if inner_strip == "":
             if not inserted_blank:
                 # one empty line after subtitle
                 slot_txt = ""
-                out.append(_color_art_line(ln, slot_txt, scanline, compact_tail=True))
+                out.append(_color_art_line(idx, ln, slot_txt, scanline, compact_tail=True))
                 inserted_blank = True
                 continue
             if info_idx < len(info_kinds):
                 slot_txt = _info_line(info_kinds[info_idx], width)
-                out.append(_color_art_line(ln, slot_txt, scanline, compact_tail=True))
+                out.append(_color_art_line(idx, ln, slot_txt, scanline, compact_tail=True))
                 info_idx += 1
                 continue
             # Keep remaining content rows clean too (no decorative overlap).
-            out.append(_color_art_line(ln, "", scanline, compact_tail=True))
+            out.append(_color_art_line(idx, ln, "", scanline, compact_tail=True))
             continue
 
-        out.append(_color_art_line(ln, None, scanline))
+        out.append(_color_art_line(idx, ln, None, scanline))
 
     return "\n".join(out)
 
